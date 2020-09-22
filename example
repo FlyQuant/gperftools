@@ -1,0 +1,29 @@
+二. CPU profiler 
+    通过cpu中断采样的方式来统计每个函数被采样的次数，占总采样次数的百分比，调用的子函数的被采样次数等。通过这些信息来找到程序的cpu性能瓶颈，从而有针对性的进行优化。
+    在要检测的程序的源文件中包含头文件google/profiler.h（默认全路径为/usr/local/include），并在需要统计的代码段前后调用函数ProfilerStop(char*)和ProfilerStop()，其中ProfilerStart的参数是输出profile的文件路径。注意，可以对多个代码段作profile，但是如果使用同样的输出文件，后一次 profile的输出会完全覆盖前一次的输出。然后编译源程序并使用-lprofiler连接选项得到链接了cpu profiler代码的可执行程序，这里推荐使用-O0编译选项，否则可能无法得到函数调用关系图。以后每次运行可执行程序，都会生成 profile输出文件，输出文件是人不可识别的二进制文件。CPU profiler采样的频率是可调的，设置环境变量CPUPROFILE_FREQUENCY来确定每秒钟的采样次数，默认为100。 
+    输出的profile文件可以用工具pprof（一个perl程序）来方便的生成各种人可读的形式。下面以一个随机生成1000000个整数插入一个红黑树中的程序来演示ppro的使用，可执行程序名为RBtree，生成的profile文件名为RBTree.prof，作profile的代码段主要调用了RBTree::insert，RBtree::insertFixup和rand等函数。 
+    pprof的使用形式都是: pprof --option [ --focus=<regexp> ] [ --ignore=<regexp> ] [--line or addresses or functions] 可执行文件路径  对应的profile路径。方括号中的项目是可选项目。<regexp>表示正则表达式。 
+    option可取的值有：text，gv，dot，ps，pdf，gif，list=<regexp>，disasm=<regexp>。表示不同的输出形式。其中list=<regexp>表示输出匹配正则表达式的函数的源代码，diasm=<regexp>表示输出匹配正则表达式的函数的反汇编代码。text是字符统计输出形式，其它的对应不同的图形文件格式。 
+    --focus=<regexp>表示只统计函数名匹配正则表达式的函数的采样，--ignore=<regexp>表示不统计函数名匹配正则表达式的函数的采样。 
+    [--line or addresses or functions]表示生成的统计是基于代码行，指令地址还是函数的，默认是函数。
+    pprof --text ./RBtree ./RBtree.prof 生成的字符统计结果如下。 
+         501  62.2%  62.2%      714  88.6% RBTree::insert
+          84  10.4%  72.6%       84  10.4% RBTree::defaultCmp
+          80   9.9%  82.5%      154  19.1% RBTree::nodeCmp
+          61   7.6%  90.1%       73   9.1% RBTree::insertFixup
+          47   5.8%  95.9%       47   5.8% malloc_trim
+           9   1.1%  97.0%      746  92.6% main
+           6    0.7%  97.8%        6   0.7% RBTree::rightRotate
+           6   0.7%  98.5%        6   0.7% RBTree::leftRotate
+           5   0.6%  99.1%        5   0.6% malloc
+           3   0.4%  99.5%        3   0.4% operator new
+           3   0.4%  99.9%        3   0.4% random_r
+           1   0.1% 100.0%        1   0.1% rand
+           0   0.0% 100.0%      755  93.7% __libc_start_main 
+    每行对应一个函数的统计。第一，二列是该函数的本地采样（不包括被该函数调用的函数中的采样次数）次数和比例，第三列是该函数本地采样次数占当前所有已统计函数的采样次数之和的比例。第四，五列是该函数的累计采样次数（包括其调用的函数中的采样次数）和比例。 
+pprof  --gif  ./RBtree ./RBtree.prof  > graph.gif  生成的gif统计图如下。
+
+ 
+    图中每个节点对应一个函数，节点中的文字分别为类名，函数明，本地采样次数比例和累计采样次数比例（如果跟本地相同则省略）。每条边表示一个函数调用关系：caller调用callee，边上的数字表示callee中因为caller调用而被采样的次数。 
+    pprof如果不带任何选项调用（只有可执行文件路径和profile文件路径）则进入互动模式，在互动模式下可使用gv，gif，text等命令来替代前面介绍的带选项的pprof调用。
+来自 <https://blog.csdn.net/turkeyzhou/article/details/8794188> 
